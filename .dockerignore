@@ -50,6 +50,7 @@ Thumbs.db
 # Documentation
 README.md
 GUIA_RAPIDO.md
+DEPLOY.md
 *.md
 
 # Scripts de setup
@@ -57,6 +58,10 @@ setup_venv.py
 setup.py
 ativar_venv.*
 test_client.py
+
+# Arquivos de exemplo
+exemplo_progress.html
+client_progress.py
 
 # Arquivos temporários
 temp/
