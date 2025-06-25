@@ -19,7 +19,7 @@ pdf-ocr/
 ├── Dockerfile              # ✅ Criado
 ├── docker-compose.yml      # ✅ Criado
 ├── .dockerignore           # ✅ Criado
-├── requirements.txt        # ✅ Atualizado
+├── requirements.txt        # ✅ Atualizado (sem python-magic-bin)
 ├── main.py                 # ✅ API principal
 ├── config.py               # ✅ Configurações
 └── temp/                   # ✅ Diretório temporário
@@ -128,6 +128,15 @@ curl -X POST "https://sua-app.easypanel.app/convert-pdf/" \
 
 ### ❌ **Problemas Comuns:**
 
+#### **Build falha - Dependências não encontradas:**
+
+```bash
+# ✅ CORRIGIDO: Removido python-magic-bin (Windows only)
+# Agora usa apenas dependências multiplataforma:
+- fastapi, uvicorn, pytesseract
+- PyMuPDF, Pillow, requests, httpx
+```
+
 #### **Build falha - Tesseract não encontrado:**
 
 ```bash
@@ -163,6 +172,27 @@ app.add_middleware(
 # Verificar se porta 8000 está exposta
 # Verificar se /health endpoint responde
 ```
+
+## ✅ **Dependências Otimizadas para Docker:**
+
+```txt
+# requirements.txt (corrigido para Linux)
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pytesseract==0.3.10
+PyMuPDF==1.23.8
+Pillow==10.1.0
+requests==2.32.4
+httpx==0.25.2
+```
+
+**🔥 Principais correções aplicadas:**
+
+- ❌ Removido `python-magic-bin` (específico Windows)
+- ✅ Mantidas apenas dependências multiplataforma
+- ✅ Dockerfile otimizado para Linux containers
+- ✅ Build mais rápido e confiável
 
 ## 🏗️ **Estrutura de Deploy**
 
