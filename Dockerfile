@@ -45,18 +45,24 @@ COPY . .
 # Criar diretório temp
 RUN mkdir -p temp
 
-# Definir variáveis de ambiente para otimização
+# Definir variáveis de ambiente para otimização e cache
 ENV TORCH_HOME=/app/.torch
 ENV TRANSFORMERS_CACHE=/app/.transformers_cache
 ENV EASYOCR_MODULE_PATH=/app/.easyocr
+ENV HF_HOME=/app/.huggingface
+ENV HF_DATASETS_CACHE=/app/.huggingface/datasets
+ENV EASYOCR_DOWNLOAD_PATH=/app/.easyocr
 
 # Criar diretórios de cache
-RUN mkdir -p $TORCH_HOME $TRANSFORMERS_CACHE $EASYOCR_MODULE_PATH
+RUN mkdir -p $TORCH_HOME $TRANSFORMERS_CACHE $EASYOCR_MODULE_PATH $HF_HOME $HF_DATASETS_CACHE $EASYOCR_DOWNLOAD_PATH
 
-# Pre-carregar modelos para otimizar inicialização (descomente se quiser)
-# NOTA: Isso aumentará significativamente o tamanho da imagem Docker
-# RUN python -c "import easyocr; easyocr.Reader(['pt', 'en'], gpu=False)" || true
-# RUN python -c "from transformers import TrOCRProcessor, VisionEncoderDecoderModel; TrOCRProcessor.from_pretrained('microsoft/trocr-base-handwritten'); VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-base-handwritten')" || true
+# Pre-carregar modelos para otimizar inicialização
+# IMPORTANTE: Isso aumenta o tamanho da imagem, mas elimina downloads em runtime
+RUN echo "🔄 Baixando modelos EasyOCR..." && \
+    python -c "import easyocr; reader = easyocr.Reader(['pt', 'en'], gpu=False); print('✅ EasyOCR modelos baixados')" || echo "❌ Falha no download EasyOCR"
+
+RUN echo "🔄 Baixando modelos TrOCR..." && \
+    python -c "from transformers import TrOCRProcessor, VisionEncoderDecoderModel; TrOCRProcessor.from_pretrained('microsoft/trocr-base-handwritten'); VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-base-handwritten'); print('✅ TrOCR modelos baixados')" || echo "❌ Falha no download TrOCR"
 
 # Expor porta
 EXPOSE 8000
