@@ -81,21 +81,37 @@ async def startup_event():
     print(f"🔧 TRANSFORMERS_AVAILABLE: {TRANSFORMERS_AVAILABLE}")
     print(f"🔧 TORCH_AVAILABLE: {TORCH_AVAILABLE}")
     
-    # Mostrar configurações de cache
-    print("📁 CONFIGURAÇÕES DE CACHE:")
-    print(f"  🗂️ TORCH_HOME: {os.environ.get('TORCH_HOME', 'não definido')}")
-    print(f"  🗂️ TRANSFORMERS_CACHE: {os.environ.get('TRANSFORMERS_CACHE', 'não definido')}")
-    print(f"  🗂️ HF_HOME: {os.environ.get('HF_HOME', 'não definido')}")
-    print(f"  🗂️ EASYOCR_MODULE_PATH: {os.environ.get('EASYOCR_MODULE_PATH', 'não definido')}")
+    # FORÇAR configuração de cache unificado
+    print("🔧 FORÇANDO CONFIGURAÇÃO DE CACHE UNIFICADO...")
+    os.environ['TORCH_HOME'] = '/app/.cache/torch'
+    os.environ['TRANSFORMERS_CACHE'] = '/app/.cache/transformers'
+    os.environ['HF_HOME'] = '/app/.cache/huggingface'
+    os.environ['HF_DATASETS_CACHE'] = '/app/.cache/huggingface/datasets'
+    os.environ['EASYOCR_MODULE_PATH'] = '/app/.cache/easyocr'
+    os.environ['EASYOCR_DOWNLOAD_PATH'] = '/app/.cache/easyocr'
     
-    # Verificar se diretórios existem
+    # Criar diretórios se não existirem
     cache_dirs = [
-        os.environ.get('TORCH_HOME', '/app/.cache/torch'),
-        os.environ.get('TRANSFORMERS_CACHE', '/app/.cache/transformers'),
-        os.environ.get('HF_HOME', '/app/.cache/huggingface'),
-        os.environ.get('EASYOCR_MODULE_PATH', '/app/.cache/easyocr')
+        '/app/.cache',
+        '/app/.cache/torch',
+        '/app/.cache/transformers', 
+        '/app/.cache/huggingface',
+        '/app/.cache/huggingface/datasets',
+        '/app/.cache/easyocr'
     ]
     
+    for cache_dir in cache_dirs:
+        os.makedirs(cache_dir, exist_ok=True)
+        print(f"  ✅ Criado/verificado: {cache_dir}")
+    
+    # Mostrar configurações de cache APÓS correção
+    print("📁 CONFIGURAÇÕES DE CACHE (CORRIGIDAS):")
+    print(f"  🗂️ TORCH_HOME: {os.environ.get('TORCH_HOME')}")
+    print(f"  🗂️ TRANSFORMERS_CACHE: {os.environ.get('TRANSFORMERS_CACHE')}")
+    print(f"  🗂️ HF_HOME: {os.environ.get('HF_HOME')}")
+    print(f"  🗂️ EASYOCR_MODULE_PATH: {os.environ.get('EASYOCR_MODULE_PATH')}")
+    
+    # Verificar estado dos diretórios
     for cache_dir in cache_dirs:
         if os.path.exists(cache_dir):
             files = os.listdir(cache_dir)
@@ -2257,11 +2273,12 @@ def extract_text_with_easyocr_only(image):
                     files = os.listdir(easyocr_default_path)
                     print(f"  📂 {easyocr_default_path}: {len(files)} arquivos")
                 
-                # Tentar forçar EasyOCR a usar nosso cache
-                os.environ['EASYOCR_DOWNLOAD_PATH'] = '/app/.cache/easyocr'
-                os.makedirs('/app/.cache/easyocr', exist_ok=True)
+                # Garantir que o EasyOCR use nosso cache
+                easyocr_cache_dir = '/app/.cache/easyocr'
+                os.makedirs(easyocr_cache_dir, exist_ok=True)
                 
-                easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False, model_storage_directory='/app/.cache/easyocr')
+                print(f"🔧 Forçando EasyOCR a usar: {easyocr_cache_dir}")
+                easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False, model_storage_directory=easyocr_cache_dir)
                 
                 # Log dos diretórios APÓS a inicialização
                 print("📁 Estado do cache APÓS a inicialização:")
