@@ -62,31 +62,48 @@ app.mount("/static", StaticFiles(directory="."), name="static")
 # Para Windows, descomente e ajuste o caminho:
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# Inicializar motores de OCR alternativos
-if EASYOCR_AVAILABLE:
-    try:
-        easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)  # Português e Inglês
-        print("✅ EasyOCR inicializado com sucesso")
-    except Exception as e:
-        easyocr_reader = None
-        print(f"❌ EasyOCR não pôde ser inicializado: {e}")
-else:
-    easyocr_reader = None
-    print("⚠️ EasyOCR não disponível - pacote não instalado")
+# Variáveis globais para engines (serão inicializadas no startup)
+easyocr_reader = None
+trocr_processor = None
+trocr_model = None
 
-if TRANSFORMERS_AVAILABLE and TORCH_AVAILABLE:
-    try:
-        trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
-        trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
-        print("✅ TrOCR inicializado com sucesso")
-    except Exception as e:
+@app.on_event("startup")
+async def startup_event():
+    """Inicializa as engines de OCR apenas uma vez durante o startup."""
+    global easyocr_reader, trocr_processor, trocr_model
+    
+    print("🚀 INICIANDO ENGINES DE OCR...")
+    
+    # Inicializar EasyOCR
+    if EASYOCR_AVAILABLE:
+        try:
+            print("⏳ Carregando EasyOCR...")
+            easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)  # Português e Inglês
+            print("✅ EasyOCR inicializado com sucesso")
+        except Exception as e:
+            easyocr_reader = None
+            print(f"❌ EasyOCR não pôde ser inicializado: {e}")
+    else:
+        easyocr_reader = None
+        print("⚠️ EasyOCR não disponível - pacote não instalado")
+
+    # Inicializar TrOCR
+    if TRANSFORMERS_AVAILABLE and TORCH_AVAILABLE:
+        try:
+            print("⏳ Carregando TrOCR...")
+            trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+            trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
+            print("✅ TrOCR inicializado com sucesso")
+        except Exception as e:
+            trocr_processor = None
+            trocr_model = None
+            print(f"❌ TrOCR não pôde ser inicializado: {e}")
+    else:
         trocr_processor = None
         trocr_model = None
-        print(f"❌ TrOCR não pôde ser inicializado: {e}")
-else:
-    trocr_processor = None
-    trocr_model = None
-    print("⚠️ TrOCR não disponível - pacotes PyTorch/Transformers não instalados")
+        print("⚠️ TrOCR não disponível - pacotes PyTorch/Transformers não instalados")
+    
+    print("🎉 ENGINES DE OCR CARREGADAS COM SUCESSO!")
 
 # Criar diretório temporário se não existir
 os.makedirs("temp", exist_ok=True)
