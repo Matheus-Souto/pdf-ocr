@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Teste PDF OCR - Processamento em Chunks</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .chunk-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #2196F3;
+        }
+
+        .page-result {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 PDF OCR - Processamento em Chunks</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            ⚡ <strong>Ideal para PDFs grandes (20+ páginas)</strong> ⚡<br>
+            Processa em pequenos lotes para evitar timeout
+        </p>
+
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="file">📄 Selecionar PDF:</label>
+                <input type="file" id="file" name="file" accept=".pdf" required>
+            </div>
+
+            <div class="form-group">
+                <label for="engine">🤖 Engine de OCR:</label>
+                <select id="engine" name="engine_preference">
+                    <option value="easyocr">EasyOCR (Recomendado)</option>
+                    <option value="tesseract">Tesseract (Rápido)</option>
+                    <option value="trocr">TrOCR (Manuscrito)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="chunk_size">📦 Tamanho do Chunk:</label>
+                <select id="chunk_size" name="chunk_size">
+                    <option value="3">3 páginas (Muito Conservador)</option>
+                    <option value="5" selected>5 páginas (Recomendado)</option>
+                    <option value="8">8 páginas (Equilibrado)</option>
+                    <option value="10">10 páginas (Arrojado)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="enhancement">🔧 Nível de Processamento:</label>
+                <select id="enhancement" name="enhancement_level">
+                    <option value="conservative">Conservative (Rápido)</option>
+                    <option value="medium" selected>Medium (Equilibrado)</option>
+                    <option value="aggressive">Aggressive (Qualidade)</option>
+                </select>
+            </div>
+
+            <button type="submit" id="submitBtn">🚀 Processar PDF em Chunks</button>
+        </form>
+
+        <div class="progress" id="progress">
+            <label>📊 Processando chunks...</label>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div id="progressText" style="text-align: center; margin-top: 10px;">Preparando...</div>
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Por favor, selecione um arquivo PDF');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('engine_preference', document.getElementById('engine').value);
+            formData.append('chunk_size', document.getElementById('chunk_size').value);
+            formData.append('enhancement_level', document.getElementById('enhancement').value);
+
+            // Mostrar progresso
+            document.getElementById('progress').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('submitBtn').textContent = '🔄 Processando...';
+
+            try {
+                const response = await fetch('/extract-text-chunked/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(data);
+                } else {
+                    showError(data.detail || 'Erro desconhecido');
+                }
+
+            } catch (error) {
+                showError(`Erro de conexão: ${error.message}`);
+            } finally {
+                document.getElementById('progress').style.display = 'none';
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('submitBtn').textContent = '🚀 Processar PDF em Chunks';
+            }
+        });
+
+        function showSuccess(data) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result success';
+            resultDiv.style.display = 'block';
+
+            let html = `
+                <h3>✅ Processamento Concluído!</h3>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value">${data.total_paginas}</div>
+                        <div class="stat-label">Total de Páginas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.chunks_processados}</div>
+                        <div class="stat-label">Chunks Processados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.tempo_total_segundos}s</div>
+                        <div class="stat-label">Tempo Total</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.estatisticas_globais.total_caracteres}</div>
+                        <div class="stat-label">Caracteres Extraídos</div>
+                    </div>
+                </div>
+                
+                <div class="chunk-info">
+                    <strong>📊 Resumo:</strong><br>
+                    🔧 Engine: ${data.estatisticas_globais.engine_utilizado}<br>
+                    📄 Páginas com texto: ${data.estatisticas_globais.paginas_com_texto}<br>
+                    💬 Total de palavras: ${data.estatisticas_globais.total_palavras}
+                </div>
+                
+                <h4>📄 Resultado por Página:</h4>
+                <div style="max-height: 400px; overflow-y: auto;">
+            `;
+
+            data.texto_extraido.forEach(page => {
+                html += `
+                    <div class="page-result">
+                        <strong>Página ${page.pagina} (Chunk ${page.chunk})</strong><br>
+                        Engine: ${page.engine_usado} | Confiança: ${page.confianca}%<br>
+                        Caracteres: ${page.estatisticas.caracteres} | Palavras: ${page.estatisticas.palavras}<br>
+                        <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; max-height: 100px; overflow-y: auto;">
+                            <strong>Texto:</strong><br>
+                            ${page.texto ? page.texto.substring(0, 200) + (page.texto.length > 200 ? '...' : '') : '<em>Nenhum texto detectado</em>'}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+
+        function showError(error) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result error';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <h3>❌ Erro no Processamento</h3>
+                <p>${error}</p>
+                <p><strong>Dicas:</strong></p>
+                <ul>
+                    <li>Verifique se o arquivo não está corrompido</li>
+                    <li>Tente um chunk menor (3 páginas)</li>
+                    <li>Use Tesseract para PDFs muito grandes</li>
+                </ul>
+            `;
+        }
+    </script>
+</body>
+
+</html>

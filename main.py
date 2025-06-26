@@ -1276,6 +1276,13 @@ async def get_example_page():
     """
     return FileResponse("exemplo_progress.html", media_type="text/html")
 
+@app.get("/teste_chunked.html")
+async def get_chunked_test_page():
+    """
+    Serve a página de teste para o endpoint chunked.
+    """
+    return FileResponse("teste_chunked.html", media_type="text/html")
+
 def extract_text_with_ai_engines(image):
     """
     Extrai texto usando múltiplos engines de IA com análise de consenso.
