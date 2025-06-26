@@ -72,38 +72,43 @@ async def startup_event():
     """Inicializa as engines de OCR apenas uma vez durante o startup."""
     global easyocr_reader, trocr_processor, trocr_model
     
-    print("🚀 INICIANDO ENGINES DE OCR...")
+    print("🚀 INICIANDO SISTEMA PDF OCR API...")
+    print(f"🔧 EASYOCR_AVAILABLE: {EASYOCR_AVAILABLE}")
+    print(f"🔧 TRANSFORMERS_AVAILABLE: {TRANSFORMERS_AVAILABLE}")
+    print(f"🔧 TORCH_AVAILABLE: {TORCH_AVAILABLE}")
     
-    # Inicializar EasyOCR
-    if EASYOCR_AVAILABLE:
-        try:
-            print("⏳ Carregando EasyOCR...")
-            easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)  # Português e Inglês
-            print("✅ EasyOCR inicializado com sucesso")
-        except Exception as e:
-            easyocr_reader = None
-            print(f"❌ EasyOCR não pôde ser inicializado: {e}")
-    else:
-        easyocr_reader = None
-        print("⚠️ EasyOCR não disponível - pacote não instalado")
+    # Inicialização LAZY - não carregar engines no startup para evitar timeout
+    print("⚡ Inicialização LAZY ativada - engines serão carregadas sob demanda")
+    print("✅ API pronta para receber requisições!")
+    
+    # # Inicializar EasyOCR
+    # if EASYOCR_AVAILABLE:
+    #     try:
+    #         print("⏳ Carregando EasyOCR...")
+    #         easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)  # Português e Inglês
+    #         print("✅ EasyOCR inicializado com sucesso")
+    #     except Exception as e:
+    #         easyocr_reader = None
+    #         print(f"❌ EasyOCR não pôde ser inicializado: {e}")
+    # else:
+    #     easyocr_reader = None
+    #     print("⚠️ EasyOCR não disponível - pacote não instalado")
 
-    # Inicializar TrOCR
-    if TRANSFORMERS_AVAILABLE and TORCH_AVAILABLE:
-        try:
-            print("⏳ Carregando TrOCR...")
-            trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
-            trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
-            print("✅ TrOCR inicializado com sucesso")
-        except Exception as e:
-            trocr_processor = None
-            trocr_model = None
-            print(f"❌ TrOCR não pôde ser inicializado: {e}")
-    else:
-        trocr_processor = None
-        trocr_model = None
-        print("⚠️ TrOCR não disponível - pacotes PyTorch/Transformers não instalados")
-    
-    print("🎉 ENGINES DE OCR CARREGADAS COM SUCESSO!")
+    # # Inicializar TrOCR
+    # if TRANSFORMERS_AVAILABLE and TORCH_AVAILABLE:
+    #     try:
+    #         print("⏳ Carregando TrOCR...")
+    #         trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+    #         trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
+    #         print("✅ TrOCR inicializado com sucesso")
+    #     except Exception as e:
+    #         trocr_processor = None
+    #         trocr_model = None
+    #         print(f"❌ TrOCR não pôde ser inicializado: {e}")
+    # else:
+    #     trocr_processor = None
+    #     trocr_model = None
+    #     print("⚠️ TrOCR não disponível - pacotes PyTorch/Transformers não instalados")
 
 # Criar diretório temporário se não existir
 os.makedirs("temp", exist_ok=True)
@@ -2188,8 +2193,24 @@ def extract_text_with_easyocr_only(image):
     """
     Extrai texto usando apenas EasyOCR.
     """
+    global easyocr_reader
     try:
         print("\n🔍 USANDO APENAS EASYOCR")
+        
+        # Inicialização LAZY do EasyOCR
+        if not easyocr_reader and EASYOCR_AVAILABLE:
+            try:
+                print("⏳ Inicializando EasyOCR sob demanda...")
+                easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)
+                print("✅ EasyOCR inicializado com sucesso")
+            except Exception as e:
+                print(f"❌ Erro ao inicializar EasyOCR: {e}")
+                return {
+                    'text': '',
+                    'confidence': 0.0,
+                    'engine': 'EasyOCR',
+                    'method': 'initialization_error'
+                }
         
         if not easyocr_reader:
             print("❌ EasyOCR não está disponível")
@@ -2243,8 +2264,25 @@ def extract_text_with_trocr_only(image):
     """
     Extrai texto usando apenas TrOCR.
     """
+    global trocr_processor, trocr_model
     try:
         print("\n🔍 USANDO APENAS TrOCR")
+        
+        # Inicialização LAZY do TrOCR
+        if (not trocr_processor or not trocr_model) and TRANSFORMERS_AVAILABLE and TORCH_AVAILABLE:
+            try:
+                print("⏳ Inicializando TrOCR sob demanda...")
+                trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+                trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
+                print("✅ TrOCR inicializado com sucesso")
+            except Exception as e:
+                print(f"❌ Erro ao inicializar TrOCR: {e}")
+                return {
+                    'text': '',
+                    'confidence': 0.0,
+                    'engine': 'TrOCR',
+                    'method': 'initialization_error'
+                }
         
         if not trocr_processor or not trocr_model:
             print("❌ TrOCR não está disponível")
