@@ -67,6 +67,9 @@ easyocr_reader = None
 trocr_processor = None
 trocr_model = None
 
+# Flag para indicar se engines estão sendo carregadas
+engines_loading = False
+
 @app.on_event("startup")
 async def startup_event():
     """Inicializa as engines de OCR apenas uma vez durante o startup."""
@@ -1196,7 +1199,21 @@ async def health_check():
     """
     Endpoint para verificar se a API está funcionando
     """
-    return {"status": "OK", "message": "API funcionando corretamente"}
+    global engines_loading
+    
+    # Se engines estão carregando, ainda considerar saudável
+    if engines_loading:
+        return {
+            "status": "OK", 
+            "message": "API funcionando - engines de IA carregando em background",
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    
+    return {
+        "status": "OK", 
+        "message": "API funcionando corretamente",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
 
 @app.get("/exemplo_progress.html")
 async def get_example_page():
@@ -2200,10 +2217,14 @@ def extract_text_with_easyocr_only(image):
         # Inicialização LAZY do EasyOCR
         if not easyocr_reader and EASYOCR_AVAILABLE:
             try:
+                global engines_loading
+                engines_loading = True
                 print("⏳ Inicializando EasyOCR sob demanda...")
                 easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)
                 print("✅ EasyOCR inicializado com sucesso")
+                engines_loading = False
             except Exception as e:
+                engines_loading = False
                 print(f"❌ Erro ao inicializar EasyOCR: {e}")
                 return {
                     'text': '',
@@ -2271,11 +2292,15 @@ def extract_text_with_trocr_only(image):
         # Inicialização LAZY do TrOCR
         if (not trocr_processor or not trocr_model) and TRANSFORMERS_AVAILABLE and TORCH_AVAILABLE:
             try:
+                global engines_loading
+                engines_loading = True
                 print("⏳ Inicializando TrOCR sob demanda...")
                 trocr_processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
                 trocr_model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-handwritten")
                 print("✅ TrOCR inicializado com sucesso")
+                engines_loading = False
             except Exception as e:
+                engines_loading = False
                 print(f"❌ Erro ao inicializar TrOCR: {e}")
                 return {
                     'text': '',
