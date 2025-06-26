@@ -45,16 +45,17 @@ COPY . .
 # Criar diretório temp
 RUN mkdir -p temp
 
-# Definir variáveis de ambiente para otimização e cache
-ENV TORCH_HOME=/app/.torch
-ENV TRANSFORMERS_CACHE=/app/.transformers_cache
-ENV EASYOCR_MODULE_PATH=/app/.easyocr
-ENV HF_HOME=/app/.huggingface
-ENV HF_DATASETS_CACHE=/app/.huggingface/datasets
-ENV EASYOCR_DOWNLOAD_PATH=/app/.easyocr
+# Definir variáveis de ambiente para cache unificado (compatível com volumes)
+ENV TORCH_HOME=/app/.cache/torch
+ENV TRANSFORMERS_CACHE=/app/.cache/transformers
+ENV HF_HOME=/app/.cache/huggingface
+ENV HF_DATASETS_CACHE=/app/.cache/huggingface/datasets
+ENV EASYOCR_MODULE_PATH=/app/.cache/easyocr
+ENV EASYOCR_DOWNLOAD_PATH=/app/.cache/easyocr
 
 # Criar diretórios de cache
-RUN mkdir -p $TORCH_HOME $TRANSFORMERS_CACHE $EASYOCR_MODULE_PATH $HF_HOME $HF_DATASETS_CACHE $EASYOCR_DOWNLOAD_PATH
+RUN mkdir -p /app/.cache && \
+    mkdir -p $TORCH_HOME $TRANSFORMERS_CACHE $HF_HOME $HF_DATASETS_CACHE $EASYOCR_MODULE_PATH
 
 # Pre-carregar modelos para otimizar inicialização
 # IMPORTANTE: Isso aumenta o tamanho da imagem, mas elimina downloads em runtime
