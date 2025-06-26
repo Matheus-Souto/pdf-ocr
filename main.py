@@ -1287,7 +1287,7 @@ async def get_chunked_test_page():
 async def extract_text_chunked_endpoint(
     file: UploadFile = File(...),
     enhancement_level: str = Form("medium"),
-    chunk_size: int = Form(5),  # Processar 5 páginas por vez
+    chunk_size: int = Form(3),  # Processar 3 páginas por vez (mais seguro)
     engine_preference: str = Form("easyocr")
 ):
     """
@@ -1441,15 +1441,67 @@ async def process_pdf_chunk(pdf_path: str, start_page: int, end_page: int, enhan
             page_number = start_page + i + 1
             print(f"🔍 Processando página {page_number} (chunk {chunk_number})...")
             
-            # Escolher engine
-            if engine_preference == "easyocr":
-                result = extract_text_with_easyocr_only(image)
-            elif engine_preference == "tesseract":
-                result = extract_text_with_multiple_configs(image)
-            elif engine_preference == "trocr":
-                result = extract_text_with_trocr_only(image)
-            else:
-                result = extract_text_with_easyocr_only(image)  # default
+            # Log detalhado de memória ANTES do processamento
+            try:
+                import psutil
+                process = psutil.Process()
+                memory_info = process.memory_info()
+                print(f"💾 ANTES P{page_number}: RAM={memory_info.rss / 1024 / 1024:.1f}MB, Virtual={memory_info.vms / 1024 / 1024:.1f}MB")
+            except:
+                print(f"💾 ANTES P{page_number}: Não foi possível verificar memória")
+            
+            # Escolher engine com timeout de segurança
+            import signal
+            import threading
+            
+            result = None
+            timeout_occurred = False
+            
+            def timeout_handler():
+                nonlocal timeout_occurred
+                timeout_occurred = True
+                print(f"⏰ TIMEOUT na página {page_number}! Forçando fallback para Tesseract...")
+            
+            # Configurar timeout de 3 minutos por página
+            timeout_timer = threading.Timer(180.0, timeout_handler)
+            timeout_timer.start()
+            
+            try:
+                page_start_time = time.time()
+                print(f"⏱️ Iniciando processamento da página {page_number} às {time.strftime('%H:%M:%S')}")
+                
+                if engine_preference == "easyocr" and not timeout_occurred:
+                    result = extract_text_with_easyocr_only(image)
+                elif engine_preference == "tesseract" and not timeout_occurred:
+                    result = extract_text_with_multiple_configs(image)
+                elif engine_preference == "trocr" and not timeout_occurred:
+                    result = extract_text_with_trocr_only(image)
+                else:
+                    result = extract_text_with_easyocr_only(image)  # default
+                
+                page_processing_time = time.time() - page_start_time
+                print(f"⏱️ Página {page_number} processada em {page_processing_time:.2f}s")
+                
+            except Exception as e:
+                print(f"❌ ERRO na página {page_number}: {str(e)}")
+                print("🔄 Tentando fallback para Tesseract...")
+                try:
+                    result = extract_text_with_multiple_configs(image)
+                    print(f"✅ Fallback Tesseract bem-sucedido para página {page_number}")
+                except Exception as fallback_error:
+                    print(f"❌ Fallback também falhou para página {page_number}: {str(fallback_error)}")
+                    result = {'text': '', 'confidence': 0, 'engine': 'Failed'}
+            
+            finally:
+                timeout_timer.cancel()
+                
+            # Se timeout ocorreu, usar Tesseract como último recurso
+            if timeout_occurred and (not result or not result.get('text', '').strip()):
+                print(f"🔄 Usando Tesseract devido a timeout na página {page_number}")
+                try:
+                    result = extract_text_with_multiple_configs(image)
+                except:
+                    result = {'text': '', 'confidence': 0, 'engine': 'Timeout_Failed'}
             
             # Estruturar resultado
             page_info = {
@@ -1467,9 +1519,33 @@ async def process_pdf_chunk(pdf_path: str, start_page: int, end_page: int, enhan
             
             chunk_results.append(page_info)
             
-            # Limpeza após cada página
+            # Log detalhado de memória APÓS processamento
+            try:
+                import psutil
+                process = psutil.Process()
+                memory_info = process.memory_info()
+                print(f"💾 APÓS P{page_number}: RAM={memory_info.rss / 1024 / 1024:.1f}MB, Virtual={memory_info.vms / 1024 / 1024:.1f}MB")
+            except:
+                print(f"💾 APÓS P{page_number}: Não foi possível verificar memória")
+            
+            # Limpeza agressiva após cada página
+            print(f"🧹 Limpando memória após página {page_number}...")
             del image
+            if 'result' in locals():
+                del result
+            if 'image_array' in locals():
+                del image_array
             gc.collect()
+            gc.collect()  # Dupla limpeza
+            
+            # Log de memória APÓS limpeza
+            try:
+                import psutil
+                process = psutil.Process()
+                memory_info = process.memory_info()
+                print(f"💾 LIMPO P{page_number}: RAM={memory_info.rss / 1024 / 1024:.1f}MB, Virtual={memory_info.vms / 1024 / 1024:.1f}MB")
+            except:
+                print(f"💾 LIMPO P{page_number}: Memória limpa")
         
         return chunk_results
         
