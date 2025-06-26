@@ -25,6 +25,7 @@ import shutil
 from pdf2image import convert_from_path
 from uuid import uuid4
 from difflib import SequenceMatcher
+import gc
 
 # Imports opcionais de AI/ML
 try:
@@ -2243,12 +2244,37 @@ def extract_text_with_easyocr_only(image):
             }
         
         # Converter imagem para formato adequado
-        if hasattr(image, 'convert'):  # PIL Image
-            image_array = np.array(image)
-        else:
-            image_array = image
-        
-        easyocr_results = easyocr_reader.readtext(image_array)
+        try:
+            if hasattr(image, 'convert'):  # PIL Image
+                image_array = np.array(image)
+            else:
+                image_array = image
+            
+            # Reduzir tamanho da imagem se muito grande (economizar memória)
+            height, width = image_array.shape[:2]
+            max_dimension = 2000  # Limitar a 2000px
+            
+            if height > max_dimension or width > max_dimension:
+                print(f"🔧 Redimensionando imagem de {width}x{height} para economizar memória...")
+                scale = max_dimension / max(height, width)
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                image_array = cv2.resize(image_array, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+                print(f"✅ Nova dimensão: {new_width}x{new_height}")
+            
+            print("🔄 Executando EasyOCR.readtext()...")
+            start_time = time.time()
+            easyocr_results = easyocr_reader.readtext(image_array)
+            processing_time = time.time() - start_time
+            print(f"✅ EasyOCR processou {len(easyocr_results) if easyocr_results else 0} regiões em {processing_time:.2f}s")
+        except Exception as e:
+            print(f"❌ Erro durante readtext: {e}")
+            return {
+                'text': '',
+                'confidence': 0.0,
+                'engine': 'EasyOCR',
+                'method': 'execution_error'
+            }
         
         if easyocr_results:
             easyocr_text = ' '.join([result[1] for result in easyocr_results])
@@ -2256,6 +2282,10 @@ def extract_text_with_easyocr_only(image):
             
             print(f"✅ EasyOCR - Confiança: {easyocr_confidence:.1f}%")
             print(f"📝 Texto extraído (primeiros 200 chars): {easyocr_text[:200]}...")
+            
+            # Limpeza de memória
+            del image_array, easyocr_results
+            gc.collect()
             
             return {
                 'text': easyocr_text,
