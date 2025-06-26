@@ -26,7 +26,6 @@ from pdf2image import convert_from_path
 from uuid import uuid4
 from difflib import SequenceMatcher
 import gc
-import psutil
 
 # Imports opcionais de AI/ML
 try:
@@ -2318,38 +2317,11 @@ def extract_text_with_easyocr_only(image):
             else:
                 image_array = image
             
-            # Reduzir tamanho da imagem AGRESSIVAMENTE para economizar memória
+            # Usar imagem na resolução original (RAM suficiente disponível)
             height, width = image_array.shape[:2]
-            max_dimension = 1200  # Reduzir para 1200px máximo
-            
-            if height > max_dimension or width > max_dimension:
-                print(f"🔧 Redimensionando imagem de {width}x{height} para economizar memória...")
-                scale = max_dimension / max(height, width)
-                new_width = int(width * scale)
-                new_height = int(height * scale)
-                image_array = cv2.resize(image_array, (new_width, new_height), interpolation=cv2.INTER_AREA)
-                print(f"✅ Nova dimensão: {new_width}x{new_height}")
-            
-            # Redução adicional se ainda muito grande
-            if width * height > 1000000:  # > 1 megapixel
-                print(f"🔧 Imagem ainda muito grande ({width}x{height}), reduzindo mais...")
-                scale = 0.7  # Reduzir 30% adicional
-                new_width = int(width * scale)
-                new_height = int(height * scale)
-                image_array = cv2.resize(image_array, (new_width, new_height), interpolation=cv2.INTER_AREA)
-                print(f"✅ Dimensão final: {new_width}x{new_height}")
+            print(f"📐 Processando imagem na resolução original: {width}x{height}")
             
             print("🔄 Executando EasyOCR.readtext()...")
-            print(f"💾 Dimensão final da imagem: {image_array.shape}")
-            print(f"💾 Memória estimada da imagem: {(image_array.nbytes / 1024 / 1024):.1f} MB")
-            
-            # Verificar memória disponível
-            try:
-                memory = psutil.virtual_memory()
-                print(f"💾 RAM disponível: {memory.available / 1024 / 1024:.1f} MB / {memory.total / 1024 / 1024:.1f} MB")
-                print(f"💾 RAM em uso: {memory.percent:.1f}%")
-            except:
-                print("💾 Não foi possível verificar memória do sistema")
             
             start_time = time.time()
             easyocr_results = easyocr_reader.readtext(image_array)
