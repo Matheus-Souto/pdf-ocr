@@ -1,0 +1,58 @@
+# ===================================================
+# DEPENDÊNCIAS COMPLETAS PARA DOCKER - PDF OCR API
+# ===================================================
+
+# Framework Web
+fastapi>=0.68.0
+uvicorn[standard]>=0.15.0
+
+# Processamento de PDFs e Imagens
+PyMuPDF>=1.20.0
+pdf2image>=1.16.0
+Pillow>=8.3.0
+
+# OCR e Processamento de Texto
+pytesseract>=0.3.8
+
+# Processamento de Imagens e Visão Computacional
+opencv-python>=4.5.0
+numpy>=1.21.0,<2.0.0
+scipy>=1.7.0
+scikit-image>=0.18.0
+
+# Utilitários HTTP
+python-multipart>=0.0.5
+requests>=2.25.0
+httpx>=0.24.0
+aiofiles>=0.8.0
+
+# ===================================================
+# DEPENDÊNCIAS DE IA/ML PARA ENDPOINT HÍBRIDO
+# ===================================================
+
+# PyTorch (CPU version para Docker)
+--index-url https://download.pytorch.org/whl/cpu
+torch>=1.9.0+cpu
+torchvision>=0.10.0+cpu
+
+# Transformers e EasyOCR para OCR avançado
+transformers>=4.15.0
+easyocr>=1.6.0
+
+# ===================================================
+# INSTRUÇÕES DE BUILD
+# ===================================================
+
+# DOCKER BUILD:
+# docker build -t pdf-ocr-api .
+
+# DOCKER RUN:
+# docker run -p 8000:8000 pdf-ocr-api
+
+# FUNCIONALIDADES INCLUÍDAS:
+# - Tesseract OCR (básico)
+# - EasyOCR (neural network)
+# - TrOCR (transformer-based)
+# - Endpoint híbrido com seleção de engine
+# - Processamento avançado de imagens
+# - Layout detection e perspective correction 

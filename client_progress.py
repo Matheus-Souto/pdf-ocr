@@ -7,114 +7,74 @@ Mostra como receber atualizações de progresso em tempo real.
 import requests
 import json
 import sys
+import os
 from pathlib import Path
 
-def extract_text_with_progress(api_url: str, pdf_file_path: str):
+def extract_text_with_progress(api_url: str, pdf_file_path: str, enhancement_level: str = "medium", resolution_scale: float = 2.0):
     """
-    Extrai texto de PDF com indicador de progresso em tempo real.
+    Extrai texto de um PDF com indicador de progresso.
     
     Args:
-        api_url: URL base da API (ex: http://localhost:8000)
+        api_url: URL da API
         pdf_file_path: Caminho para o arquivo PDF
+        enhancement_level: Nível de pré-processamento ("basic", "medium", "aggressive", "ultra")
+        resolution_scale: Escala de resolução (1.0-4.0)
     """
     
-    # Verificar se arquivo existe
+    # Verificar se o arquivo existe
     pdf_path = Path(pdf_file_path)
     if not pdf_path.exists():
-        print(f"❌ Arquivo não encontrado: {pdf_file_path}")
+        print(f"❌ Erro: Arquivo '{pdf_file_path}' não encontrado.")
         return None
     
-    print(f"📄 Iniciando extração de texto: {pdf_path.name}")
-    print("=" * 60)
-    
-    # Preparar arquivo para upload
-    files = {'file': ('document.pdf', open(pdf_path, 'rb'), 'application/pdf')}
+    print(f"📄 Processando: {pdf_path.name}")
+    print(f"🔧 Configurações:")
+    print(f"   • Nível de processamento: {enhancement_level}")
+    print(f"   • Escala de resolução: {resolution_scale}x")
+    print("─" * 50)
     
     try:
-        # Fazer requisição com streaming
-        response = requests.post(
-            f"{api_url}/extract-text-progress/",
-            files=files,
-            stream=True
-        )
-        
-        if response.status_code != 200:
-            print(f"❌ Erro na requisição: {response.status_code}")
-            return None
-        
-        # Processar stream de dados
-        extracted_data = None
-        total_chars = 0
-        
-        for line in response.iter_lines(decode_unicode=True):
-            if line and line.startswith('data: '):
-                try:
-                    # Parse JSON data
-                    data = json.loads(line[6:])  # Remove 'data: ' prefix
-                    
-                    # Processar diferentes tipos de mensagem
-                    if data['tipo'] == 'info':
-                        print(f"📋 Arquivo: {data['arquivo']['nome']} ({data['arquivo']['tamanho_mb']}MB)")
-                        print(f"📊 Total de páginas: {data['processamento']['total_paginas']}")
-                        print()
-                        
-                    elif data['tipo'] == 'progresso':
-                        # Mostrar barra de progresso
-                        progress = data['processamento']['progresso_percent']
-                        bar_length = 40
-                        filled_length = int(bar_length * progress // 100)
-                        bar = '█' * filled_length + '-' * (bar_length - filled_length)
-                        
-                        print(f"\r🔄 [{bar}] {progress}% - {data['processamento']['status']}", end='', flush=True)
-                        
-                    elif data['tipo'] == 'pagina_concluida':
-                        total_chars = data['estatisticas_gerais']['total_caracteres']
-                        print(f"\n✅ Página {data['pagina']['numero']} concluída")
-                        print(f"   📝 Caracteres: {data['resultado']['caracteres_pagina']}")
-                        print(f"   📄 Linhas: {data['resultado']['linhas_pagina']}")
-                        print(f"   🔤 Palavras: {data['resultado']['palavras_pagina']}")
-                        print(f"   📊 Total geral: {total_chars} caracteres")
-                        
-                    elif data['tipo'] == 'concluido':
-                        print(f"\n\n🎉 Extração concluída!")
-                        print("=" * 50)
-                        print(f"📄 Arquivo: {data['arquivo']['nome']}")
-                        print(f"💾 Tamanho: {data['arquivo']['tamanho_mb']}MB")
-                        print(f"📊 Páginas processadas: {data['processamento']['total_paginas']}")
-                        print(f"📝 Total de caracteres: {data['estatisticas']['total_caracteres']:,}")
-                        print(f"🔤 Total de palavras: {data['estatisticas']['total_palavras']:,}")
-                        print(f"📄 Total de linhas: {data['estatisticas']['total_linhas']:,}")
-                        print(f"📑 Páginas com texto: {data['estatisticas']['paginas_com_texto']}")
-                        print(f"📄 Páginas vazias: {data['estatisticas']['paginas_vazias']}")
-                        print(f"📊 Média: {data['estatisticas']['media_caracteres_por_pagina']:.1f} caracteres/página")
-                        
-                        if data['resultados']['resumo_conteudo']['pagina_mais_longa']:
-                            print(f"🏆 Página mais longa: {data['resultados']['resumo_conteudo']['pagina_mais_longa']}")
-                        if data['resultados']['resumo_conteudo']['pagina_mais_curta']:
-                            print(f"🎯 Página mais curta: {data['resultados']['resumo_conteudo']['pagina_mais_curta']}")
-                        
-                        extracted_data = data
-                        break
-                        
-                    elif data['tipo'] == 'erro':
-                        print(f"\n❌ Erro: {data['erro']['mensagem']}")
-                        print(f"🔍 Tipo: {data['erro']['tipo_erro']}")
-                        if data['erro']['detalhes']:
-                            print(f"💡 Dica: {data['erro']['detalhes']}")
-                        return None
-                        
-                except json.JSONDecodeError as e:
-                    print(f"⚠️ Erro ao processar dados: {e}")
-                    continue
-        
-        return extracted_data
-        
-    except requests.RequestException as e:
-        print(f"❌ Erro na requisição: {e}")
+        # Preparar dados para envio
+        with open(pdf_path, 'rb') as file:
+            files = {'file': file}
+            data = {
+                'enhancement_level': enhancement_level,
+                'resolution_scale': str(resolution_scale)
+            }
+            
+            # Fazer requisição com streaming
+            response = requests.post(
+                f"{api_url}/extract-text-progress/",
+                files=files,
+                data=data,
+                stream=True
+            )
+            
+            if response.status_code != 200:
+                print(f"❌ Erro HTTP {response.status_code}: {response.text}")
+                return None
+            
+            # Processar resposta em streaming
+            extracted_data = None
+            for line in response.iter_lines(decode_unicode=True):
+                if line and line.startswith('data: '):
+                    try:
+                        json_data = json.loads(line[6:])  # Remove 'data: '
+                        extracted_data = process_message(json_data)
+                        if extracted_data and json_data.get('tipo') == 'concluido':
+                            break
+                    except json.JSONDecodeError as e:
+                        print(f"⚠️ Erro ao decodificar JSON: {e}")
+                        continue
+            
+            return extracted_data
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Erro de conexão: {e}")
         return None
-    finally:
-        # Fechar arquivo
-        files['file'][1].close()
+    except Exception as e:
+        print(f"❌ Erro inesperado: {e}")
+        return None
 
 def save_extracted_text(data: dict, output_file: str = None):
     """
@@ -170,57 +130,75 @@ def save_extracted_text(data: dict, output_file: str = None):
         print(f"❌ Erro ao salvar arquivo: {e}")
 
 def main():
-    """Função principal do cliente."""
-    
-    # Configurações
-    API_URL = "http://localhost:8000"
-    
-    # Verificar argumentos
-    if len(sys.argv) < 2:
-        print("📋 Uso: python client_progress.py <arquivo_pdf> [url_api]")
-        print("📋 Exemplo: python client_progress.py documento.pdf")
-        print("📋 Exemplo: python client_progress.py documento.pdf http://localhost:8000")
-        sys.exit(1)
-    
-    pdf_file = sys.argv[1]
-    api_url = sys.argv[2] if len(sys.argv) > 2 else API_URL
-    
-    print("🚀 Cliente de Extração de Texto com Progresso")
+    """
+    Função principal do cliente com interface de linha de comando melhorada.
+    """
+    print("🔍 Cliente PDF OCR com Progresso em Tempo Real")
     print("=" * 60)
-    print(f"🌐 API: {api_url}")
-    print(f"📄 Arquivo: {pdf_file}")
+    print("📌 Uso: python client_progress.py <arquivo.pdf> [enhancement_level] [resolution_scale]")
     print()
     
-    # Extrair texto
-    result = extract_text_with_progress(api_url, pdf_file)
+    if len(sys.argv) < 2:
+        print("❌ Erro: Por favor, forneça o caminho do arquivo PDF")
+        print()
+        print("📋 Exemplos de uso:")
+        print("  python client_progress.py documento.pdf")
+        print("  python client_progress.py documento.pdf medium 2.0")
+        print("  python client_progress.py documento.pdf ultra 3.0")
+        print()
+        print("📚 Parâmetros disponíveis:")
+        print("  enhancement_level: basic, medium, aggressive, ultra (padrão: medium)")
+        print("  resolution_scale: 1.0-4.0 (padrão: 2.0)")
+        sys.exit(1)
     
-    if result:
-        print("\n" + "=" * 60)
+    pdf_path = sys.argv[1]
+    
+    # Configurações padrão
+    enhancement_level = "medium"
+    resolution_scale = 2.0
+    
+    # Processar argumentos opcionais
+    if len(sys.argv) >= 3:
+        enhancement_level = sys.argv[2]
+    if len(sys.argv) >= 4:
+        try:
+            resolution_scale = float(sys.argv[3])
+        except ValueError:
+            print("❌ Erro: resolution_scale deve ser um número decimal (ex: 2.0)")
+            sys.exit(1)
+    
+    # Validar parâmetros
+    if not os.path.exists(pdf_path):
+        print(f"❌ Erro: Arquivo '{pdf_path}' não encontrado!")
+        sys.exit(1)
+    
+    if enhancement_level not in ["basic", "medium", "aggressive", "ultra"]:
+        print("❌ Erro: enhancement_level deve ser 'basic', 'medium', 'aggressive' ou 'ultra'")
+        sys.exit(1)
+    
+    if not 1.0 <= resolution_scale <= 4.0:
+        print("❌ Erro: resolution_scale deve estar entre 1.0 e 4.0")
+        sys.exit(1)
+    
+    # Executar extração
+    extracted_data = extract_text_with_progress(API_URL, pdf_path, enhancement_level, resolution_scale)
+    
+    if extracted_data:
+        print("\n" + "=" * 50)
+        print("💾 Deseja salvar o texto extraído em um arquivo?")
+        save_choice = input("Digite 's' para sim, ou Enter para não: ").lower().strip()
         
-        # Perguntar se quer salvar
-        save_choice = input("\n💾 Deseja salvar o texto extraído? (s/N): ").strip().lower()
-        
-        if save_choice in ['s', 'sim', 'y', 'yes']:
-            output_file = input("📁 Nome do arquivo (Enter para automático): ").strip()
-            save_extracted_text(result, output_file if output_file else None)
-        
-        # Mostrar resumo das primeiras páginas
-        print("\n📋 Resumo do conteúdo extraído:")
-        print("-" * 40)
-        
-        for i, page_data in enumerate(result['resultados']['texto_por_pagina'][:3]):  # Primeiras 3 páginas
-            texto = page_data['texto'][:200]  # Primeiros 200 caracteres
-            if len(page_data['texto']) > 200:
-                texto += "..."
+        if save_choice == 's':
+            output_file = input("Nome do arquivo (ou Enter para nome automático): ").strip()
+            if not output_file:
+                output_file = None
             
-            print(f"\n📄 Página {page_data['pagina']}:")
-            print(f"   {len(page_data['texto'])} caracteres")
-            print(f"   Prévia: {texto}")
-        
-        if len(result['resultados']['texto_por_pagina']) > 3:
-            print(f"\n   ... e mais {len(result['resultados']['texto_por_pagina']) - 3} páginas")
-    
-    print("\n✨ Processamento concluído!")
+            save_extracted_text(extracted_data, output_file)
+        else:
+            print("✅ Extração concluída. Texto não foi salvo.")
+    else:
+        print("❌ Falha na extração do texto.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

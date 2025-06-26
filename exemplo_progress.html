@@ -27,21 +27,132 @@
             margin-bottom: 30px;
         }
 
-        .upload-area {
-            border: 2px dashed #ddd;
+        .upload-container {
+            background: white;
             border-radius: 10px;
             padding: 30px;
-            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
-            transition: border-color 0.3s;
+            max-width: 600px;
+            margin: 0 auto 20px auto;
         }
 
-        .upload-area:hover {
+        .upload-box {
+            border: 3px dashed #007bff;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+            cursor: pointer;
+        }
+
+        .upload-box:hover {
+            border-color: #0056b3;
+            background-color: #f8f9fa;
+        }
+
+        .upload-box input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-text strong {
+            font-size: 1.2rem;
+            color: #007bff;
+        }
+
+        .upload-text p {
+            color: #6c757d;
+            margin: 5px 0 0 0;
+        }
+
+        .config-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h3 {
+            margin-top: 0;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+
+        .config-group {
+            margin-bottom: 20px;
+        }
+
+        .config-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        .config-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+            background-color: white;
+        }
+
+        .config-group select:focus {
             border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
         }
 
-        .file-input {
-            margin: 10px 0;
+        .config-group input[type="range"] {
+            width: calc(100% - 60px);
+            margin-right: 10px;
+        }
+
+        .config-group span {
+            display: inline-block;
+            min-width: 45px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .config-group small {
+            display: block;
+            color: #6c757d;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        #extractBtn {
+            width: 100%;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        #extractBtn:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #extractBtn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .progress-container {
@@ -97,26 +208,6 @@
             border-left: 4px solid #007bff;
         }
 
-        .btn {
-            background: #007bff;
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background 0.3s;
-        }
-
-        .btn:hover {
-            background: #0056b3;
-        }
-
-        .btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-        }
-
         .error {
             color: #dc3545;
             background: #f8d7da;
@@ -163,11 +254,44 @@
     <div class="container">
         <h1>📄 Extração de Texto PDF com Progresso</h1>
 
-        <div class="upload-area">
-            <h3>📁 Selecione um arquivo PDF</h3>
-            <input type="file" id="pdfFile" class="file-input" accept=".pdf">
-            <br><br>
-            <button id="extractBtn" class="btn" onclick="extractText()">🚀 Extrair Texto com Progresso</button>
+        <div class="upload-container">
+            <div class="upload-box">
+                <input type="file" id="pdfFile" accept=".pdf" />
+                <label for="pdfFile">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">
+                        <strong>Escolha um arquivo PDF</strong>
+                        <p>Arraste e solte ou clique para selecionar</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Novos controles de configuração -->
+            <div class="config-section">
+                <h3>⚙️ Configurações de Processamento</h3>
+
+                <div class="config-group">
+                    <label for="enhancementLevel">Nível de Pré-processamento:</label>
+                    <select id="enhancementLevel">
+                        <option value="basic">Básico - Apenas escala de cinza</option>
+                        <option value="medium" selected>Médio - Redução de ruído + contraste</option>
+                        <option value="aggressive">Agressivo - Múltiplas técnicas avançadas</option>
+                        <option value="ultra">Ultra - Análise de layout + máxima precisão</option>
+                    </select>
+                    <small>💡 Básico: mais rápido | Ultra: melhor qualidade possível</small>
+                </div>
+
+                <div class="config-group">
+                    <label for="resolutionScale">Escala de Resolução:</label>
+                    <input type="range" id="resolutionScale" min="1.0" max="4.0" step="0.5" value="2.0">
+                    <span id="resolutionValue">2.0x</span>
+                    <small>💡 Maior resolução = melhor OCR, mas processamento mais lento</small>
+                </div>
+            </div>
+
+            <button id="extractBtn" onclick="extractText()">
+                🚀 Extrair Texto do PDF
+            </button>
         </div>
 
         <div id="progressContainer" class="progress-container">
@@ -199,34 +323,46 @@
     <script>
         let totalCharacters = 0;
 
+        // Atualizar valor do slider em tempo real
+        document.getElementById('resolutionScale').addEventListener('input', function (e) {
+            document.getElementById('resolutionValue').textContent = e.target.value + 'x';
+        });
+
         async function extractText() {
             const fileInput = document.getElementById('pdfFile');
-            const file = fileInput.files[0];
+            const extractBtn = document.getElementById('extractBtn');
+            const progressDiv = document.getElementById('progress');
+            const resultsDiv = document.getElementById('results');
+            const enhancementLevel = document.getElementById('enhancementLevel').value;
+            const resolutionScale = parseFloat(document.getElementById('resolutionScale').value);
 
-            if (!file) {
-                alert('Por favor, selecione um arquivo PDF');
+            if (!fileInput.files[0]) {
+                alert('⚠️ Por favor, selecione um arquivo PDF primeiro!');
                 return;
             }
 
-            // Resetar interface
-            document.getElementById('progressContainer').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-            document.getElementById('extractBtn').disabled = true;
-            totalCharacters = 0;
+            // Reset interface
+            progressDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            extractBtn.disabled = true;
+            extractBtn.textContent = '⏳ Processando...';
 
-            // Preparar FormData
+            // Mostrar configurações selecionadas
+            showInfo(`🔧 Configurações: ${enhancementLevel} | Resolução: ${resolutionScale}x`);
+
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', fileInput.files[0]);
+            formData.append('enhancement_level', enhancementLevel);
+            formData.append('resolution_scale', resolutionScale);
 
             try {
-                // Fazer requisição com Server-Sent Events
                 const response = await fetch('/extract-text-progress/', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (!response.ok) {
-                    throw new Error('Erro na requisição');
+                    throw new Error(`Erro HTTP: ${response.status}`);
                 }
 
                 const reader = response.body.getReader();
@@ -234,37 +370,31 @@
                 let buffer = '';
 
                 while (true) {
-                    const { value, done } = await reader.read();
+                    const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value);
-                    buffer += chunk;
-
-                    // Processar linhas completas
+                    buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
-                    // Manter a última linha parcial no buffer
                     buffer = lines.pop() || '';
 
                     for (const line of lines) {
-                        if (line.startsWith('data: ') && line.trim() !== 'data: ') {
+                        if (line.startsWith('data: ')) {
                             try {
-                                const jsonStr = line.slice(6).trim();
-                                if (jsonStr) {
-                                    const data = JSON.parse(jsonStr);
-                                    handleProgressUpdate(data);
-                                }
+                                const jsonData = JSON.parse(line.slice(6));
+                                handleProgressUpdate(jsonData);
                             } catch (e) {
-                                console.log('Erro ao processar JSON:', line.slice(6));
-                                console.error('Erro detalhado:', e);
+                                console.warn('Erro ao analisar JSON:', e, 'Linha:', line);
                             }
                         }
                     }
                 }
 
             } catch (error) {
-                showError('Erro ao extrair texto: ' + error.message);
+                showError('Erro ao processar arquivo', error.message);
+                console.error('Erro:', error);
             } finally {
-                document.getElementById('extractBtn').disabled = false;
+                extractBtn.disabled = false;
+                extractBtn.textContent = '🚀 Extrair Texto do PDF';
             }
         }
 
