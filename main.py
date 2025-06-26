@@ -81,6 +81,28 @@ async def startup_event():
     print(f"🔧 TRANSFORMERS_AVAILABLE: {TRANSFORMERS_AVAILABLE}")
     print(f"🔧 TORCH_AVAILABLE: {TORCH_AVAILABLE}")
     
+    # Mostrar configurações de cache
+    print("📁 CONFIGURAÇÕES DE CACHE:")
+    print(f"  🗂️ TORCH_HOME: {os.environ.get('TORCH_HOME', 'não definido')}")
+    print(f"  🗂️ TRANSFORMERS_CACHE: {os.environ.get('TRANSFORMERS_CACHE', 'não definido')}")
+    print(f"  🗂️ HF_HOME: {os.environ.get('HF_HOME', 'não definido')}")
+    print(f"  🗂️ EASYOCR_MODULE_PATH: {os.environ.get('EASYOCR_MODULE_PATH', 'não definido')}")
+    
+    # Verificar se diretórios existem
+    cache_dirs = [
+        os.environ.get('TORCH_HOME', '/app/.cache/torch'),
+        os.environ.get('TRANSFORMERS_CACHE', '/app/.cache/transformers'),
+        os.environ.get('HF_HOME', '/app/.cache/huggingface'),
+        os.environ.get('EASYOCR_MODULE_PATH', '/app/.cache/easyocr')
+    ]
+    
+    for cache_dir in cache_dirs:
+        if os.path.exists(cache_dir):
+            files = os.listdir(cache_dir)
+            print(f"  📂 {cache_dir}: {len(files)} arquivos")
+        else:
+            print(f"  ❌ {cache_dir}: não existe")
+    
     # Inicialização LAZY - não carregar engines no startup para evitar timeout
     print("⚡ Inicialização LAZY ativada - engines serão carregadas sob demanda")
     print("✅ API pronta para receber requisições!")
@@ -2221,7 +2243,35 @@ def extract_text_with_easyocr_only(image):
                 global engines_loading
                 engines_loading = True
                 print("⏳ Inicializando EasyOCR sob demanda...")
-                easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False)
+                
+                # Log dos diretórios antes da inicialização
+                print("📁 Estado do cache ANTES da inicialização:")
+                import easyocr
+                print(f"  🗂️ EasyOCR module path: {easyocr.__file__}")
+                
+                # Verificar onde o EasyOCR salva por padrão
+                easyocr_default_path = os.path.expanduser('~/.EasyOCR')
+                print(f"  🗂️ EasyOCR default path: {easyocr_default_path}")
+                
+                if os.path.exists(easyocr_default_path):
+                    files = os.listdir(easyocr_default_path)
+                    print(f"  📂 {easyocr_default_path}: {len(files)} arquivos")
+                
+                # Tentar forçar EasyOCR a usar nosso cache
+                os.environ['EASYOCR_DOWNLOAD_PATH'] = '/app/.cache/easyocr'
+                os.makedirs('/app/.cache/easyocr', exist_ok=True)
+                
+                easyocr_reader = easyocr.Reader(['pt', 'en'], gpu=False, model_storage_directory='/app/.cache/easyocr')
+                
+                # Log dos diretórios APÓS a inicialização
+                print("📁 Estado do cache APÓS a inicialização:")
+                for cache_dir in ['/app/.cache', '/app/.cache/easyocr', easyocr_default_path]:
+                    if os.path.exists(cache_dir):
+                        files = os.listdir(cache_dir)
+                        print(f"  📂 {cache_dir}: {len(files)} arquivos")
+                        if files:
+                            print(f"    📄 Primeiros arquivos: {files[:3]}")
+                
                 print("✅ EasyOCR inicializado com sucesso")
                 engines_loading = False
             except Exception as e:

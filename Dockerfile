@@ -32,6 +32,18 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Definir variáveis de ambiente ANTES da instalação dos pacotes
+ENV TORCH_HOME=/app/.cache/torch
+ENV TRANSFORMERS_CACHE=/app/.cache/transformers
+ENV HF_HOME=/app/.cache/huggingface
+ENV HF_DATASETS_CACHE=/app/.cache/huggingface/datasets
+ENV EASYOCR_MODULE_PATH=/app/.cache/easyocr
+ENV EASYOCR_DOWNLOAD_PATH=/app/.cache/easyocr
+
+# Criar diretórios de cache
+RUN mkdir -p /app/.cache && \
+    mkdir -p $TORCH_HOME $TRANSFORMERS_CACHE $HF_HOME $HF_DATASETS_CACHE $EASYOCR_MODULE_PATH
+
 # Copiar requirements específicos do Docker
 COPY requirements-docker.txt .
 
