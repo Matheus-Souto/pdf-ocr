@@ -26,6 +26,10 @@ from pdf2image import convert_from_path
 from uuid import uuid4
 from difflib import SequenceMatcher
 import gc
+import warnings
+
+# Silenciar warnings desnecessários do PyTorch
+warnings.filterwarnings("ignore", message=".*NNPACK.*")
 
 # Imports opcionais de AI/ML
 try:
@@ -1161,6 +1165,15 @@ async def extract_text_with_progress(
                 all_text.append(page_info["resultados"])
                 yield f"data: {json.dumps(page_info, ensure_ascii=False)}\n\n"
                 
+                # Limpeza forçada de memória após cada página
+                gc.collect()
+                
+                # Limpeza adicional a cada 5 páginas para prevenir acúmulo
+                if (page_num + 1) % 5 == 0:
+                    print(f"🧹 Limpeza intensiva de memória na página {page_num + 1}")
+                    gc.collect()
+                    gc.collect()  # Dupla limpeza
+                
             # Calcular estatísticas finais
             total_characters = sum(page["estatisticas"]["caracteres"] for page in all_text)
             total_words = sum(page["estatisticas"]["palavras"] for page in all_text)
@@ -1229,7 +1242,9 @@ async def extract_text_with_progress(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Content-Type": "text/event-stream",
-            "Access-Control-Allow-Origin": "*"
+            "Access-Control-Allow-Origin": "*",
+            "X-Accel-Buffering": "no",  # Nginx: desabilitar buffering
+            "Keep-Alive": "timeout=600, max=1000"  # Keep-alive por 10 minutos
         }
     )
 
@@ -2485,4 +2500,10 @@ def extract_text_with_trocr_only(image):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000,
+        timeout_keep_alive=300,  # 5 minutos
+        timeout_graceful_shutdown=30
+    ) 
