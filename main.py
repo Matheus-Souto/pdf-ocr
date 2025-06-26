@@ -26,6 +26,7 @@ from pdf2image import convert_from_path
 from uuid import uuid4
 from difflib import SequenceMatcher
 import gc
+import psutil
 
 # Imports opcionais de AI/ML
 try:
@@ -2317,25 +2318,67 @@ def extract_text_with_easyocr_only(image):
             else:
                 image_array = image
             
-            # Reduzir tamanho da imagem se muito grande (economizar memória)
+            # Reduzir tamanho da imagem AGRESSIVAMENTE para economizar memória
             height, width = image_array.shape[:2]
-            max_dimension = 2000  # Limitar a 2000px
+            max_dimension = 1200  # Reduzir para 1200px máximo
             
             if height > max_dimension or width > max_dimension:
                 print(f"🔧 Redimensionando imagem de {width}x{height} para economizar memória...")
                 scale = max_dimension / max(height, width)
                 new_width = int(width * scale)
                 new_height = int(height * scale)
-                image_array = cv2.resize(image_array, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+                image_array = cv2.resize(image_array, (new_width, new_height), interpolation=cv2.INTER_AREA)
                 print(f"✅ Nova dimensão: {new_width}x{new_height}")
             
+            # Redução adicional se ainda muito grande
+            if width * height > 1000000:  # > 1 megapixel
+                print(f"🔧 Imagem ainda muito grande ({width}x{height}), reduzindo mais...")
+                scale = 0.7  # Reduzir 30% adicional
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                image_array = cv2.resize(image_array, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                print(f"✅ Dimensão final: {new_width}x{new_height}")
+            
             print("🔄 Executando EasyOCR.readtext()...")
+            print(f"💾 Dimensão final da imagem: {image_array.shape}")
+            print(f"💾 Memória estimada da imagem: {(image_array.nbytes / 1024 / 1024):.1f} MB")
+            
+            # Verificar memória disponível
+            try:
+                memory = psutil.virtual_memory()
+                print(f"💾 RAM disponível: {memory.available / 1024 / 1024:.1f} MB / {memory.total / 1024 / 1024:.1f} MB")
+                print(f"💾 RAM em uso: {memory.percent:.1f}%")
+            except:
+                print("💾 Não foi possível verificar memória do sistema")
+            
             start_time = time.time()
             easyocr_results = easyocr_reader.readtext(image_array)
             processing_time = time.time() - start_time
             print(f"✅ EasyOCR processou {len(easyocr_results) if easyocr_results else 0} regiões em {processing_time:.2f}s")
         except Exception as e:
             print(f"❌ Erro durante readtext: {e}")
+            print("🔄 FALLBACK: Tentando Tesseract devido à falha no EasyOCR...")
+            
+            # Fallback para Tesseract se EasyOCR falhar
+            try:
+                from PIL import Image as PILImage
+                if isinstance(image, np.ndarray):
+                    pil_image = PILImage.fromarray(image)
+                else:
+                    pil_image = image
+                
+                tesseract_result = extract_text_with_multiple_configs(pil_image)
+                if tesseract_result and tesseract_result.get('text', '').strip():
+                    print(f"✅ FALLBACK Tesseract bem-sucedido!")
+                    return {
+                        'text': tesseract_result['text'],
+                        'confidence': tesseract_result['confidence'],
+                        'engine': 'Tesseract (EasyOCR fallback)',
+                        'method': 'fallback_due_to_memory'
+                    }
+            except Exception as fallback_error:
+                print(f"❌ Fallback Tesseract também falhou: {fallback_error}")
+            
             return {
                 'text': '',
                 'confidence': 0.0,
