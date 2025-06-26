@@ -1283,6 +1283,200 @@ async def get_chunked_test_page():
     """
     return FileResponse("teste_chunked.html", media_type="text/html")
 
+@app.post("/extract-text-chunked/")
+async def extract_text_chunked_endpoint(
+    file: UploadFile = File(...),
+    enhancement_level: str = Form("medium"),
+    chunk_size: int = Form(5),  # Processar 5 páginas por vez
+    engine_preference: str = Form("easyocr")
+):
+    """
+    Processa PDFs grandes dividindo em chunks menores para evitar timeout.
+    Ideal para PDFs com 20+ páginas.
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Arquivo deve ser um PDF")
+    
+    input_pdf_path = None
+    start_time = time.time()
+    
+    try:
+        print(f"\n🚀 INICIANDO PROCESSAMENTO EM CHUNKS")
+        print(f"📁 Arquivo: {file.filename}")
+        print(f"📦 Tamanho do chunk: {chunk_size} páginas")
+        print(f"🎯 Engine: {engine_preference}")
+        
+        # Salvar arquivo temporário
+        temp_dir = "temp"
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        file_id = str(uuid.uuid4())
+        input_pdf_path = os.path.join(temp_dir, f"input_{file_id}.pdf")
+        
+        with open(input_pdf_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Verificar total de páginas primeiro
+        doc = fitz.open(input_pdf_path)
+        total_pages = len(doc)
+        doc.close()
+        
+        print(f"📄 Total de páginas: {total_pages}")
+        print(f"📦 Será dividido em {(total_pages + chunk_size - 1) // chunk_size} chunks")
+        
+        all_results = []
+        chunk_number = 0
+        
+        # Processar em chunks
+        for start_page in range(0, total_pages, chunk_size):
+            end_page = min(start_page + chunk_size, total_pages)
+            chunk_number += 1
+            
+            print(f"\n📦 PROCESSANDO CHUNK {chunk_number}")
+            print(f"📄 Páginas {start_page + 1} até {end_page}")
+            
+            # Processar chunk atual
+            chunk_result = await process_pdf_chunk(
+                input_pdf_path, 
+                start_page, 
+                end_page, 
+                enhancement_level,
+                engine_preference,
+                chunk_number
+            )
+            
+            all_results.extend(chunk_result)
+            
+            # Limpeza forçada após cada chunk
+            gc.collect()
+            gc.collect()
+            
+            print(f"✅ Chunk {chunk_number} concluído")
+        
+        # Calcular estatísticas finais
+        total_characters = sum(page.get('estatisticas', {}).get('caracteres', 0) for page in all_results)
+        total_words = sum(page.get('estatisticas', {}).get('palavras', 0) for page in all_results)
+        processing_time = time.time() - start_time
+        
+        print(f"\n🎉 PROCESSAMENTO COMPLETO!")
+        print(f"📊 {total_pages} páginas processadas em {processing_time:.2f}s")
+        print(f"📊 {total_characters} caracteres extraídos")
+        
+        return {
+            "filename": file.filename,
+            "total_paginas": total_pages,
+            "chunk_size": chunk_size,
+            "chunks_processados": chunk_number,
+            "tempo_total_segundos": round(processing_time, 2),
+            "texto_extraido": all_results,
+            "estatisticas_globais": {
+                "total_caracteres": total_characters,
+                "total_palavras": total_words,
+                "paginas_com_texto": len([p for p in all_results if p.get('texto', '').strip()]),
+                "engine_utilizado": engine_preference
+            },
+            "sucesso": True
+        }
+        
+    except Exception as e:
+        print(f"❌ Erro no processamento chunked: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
+    
+    finally:
+        # Limpeza
+        if input_pdf_path and os.path.exists(input_pdf_path):
+            try:
+                os.remove(input_pdf_path)
+            except:
+                pass
+
+async def process_pdf_chunk(pdf_path: str, start_page: int, end_page: int, enhancement_level: str, engine_preference: str, chunk_number: int):
+    """
+    Processa um chunk específico de páginas do PDF.
+    """
+    try:
+        chunk_results = []
+        
+        # Converter páginas do chunk para imagens
+        print(f"🔄 Convertendo páginas {start_page + 1}-{end_page} para imagens...")
+        
+        poppler_paths = [
+            None,  # PATH do sistema
+            r"C:\poppler-24.08.0\Library\bin",
+            r"C:\poppler-24.08.0\bin",
+            r"C:\poppler\bin"
+        ]
+        
+        images = None
+        for poppler_path in poppler_paths:
+            try:
+                if poppler_path:
+                    images = convert_from_path(
+                        pdf_path, 
+                        dpi=300, 
+                        fmt='jpeg',
+                        first_page=start_page + 1,
+                        last_page=end_page,
+                        poppler_path=poppler_path
+                    )
+                else:
+                    images = convert_from_path(
+                        pdf_path, 
+                        dpi=300, 
+                        fmt='jpeg',
+                        first_page=start_page + 1,
+                        last_page=end_page
+                    )
+                print(f"✅ Poppler funcionando para chunk {chunk_number}")
+                break
+            except Exception as e:
+                continue
+        
+        if not images:
+            raise Exception("Falha ao converter páginas para imagens")
+        
+        # Processar cada página do chunk
+        for i, image in enumerate(images):
+            page_number = start_page + i + 1
+            print(f"🔍 Processando página {page_number} (chunk {chunk_number})...")
+            
+            # Escolher engine
+            if engine_preference == "easyocr":
+                result = extract_text_with_easyocr_only(image)
+            elif engine_preference == "tesseract":
+                result = extract_text_with_multiple_configs(image)
+            elif engine_preference == "trocr":
+                result = extract_text_with_trocr_only(image)
+            else:
+                result = extract_text_with_easyocr_only(image)  # default
+            
+            # Estruturar resultado
+            page_info = {
+                "pagina": page_number,
+                "chunk": chunk_number,
+                "texto": result.get('text', '').strip(),
+                "engine_usado": result.get('engine', engine_preference),
+                "confianca": round(result.get('confidence', 0), 2),
+                "estatisticas": {
+                    "caracteres": len(result.get('text', '').strip()),
+                    "palavras": len(result.get('text', '').strip().split()) if result.get('text', '').strip() else 0,
+                    "linhas": len(result.get('text', '').strip().split('\n')) if result.get('text', '').strip() else 0
+                }
+            }
+            
+            chunk_results.append(page_info)
+            
+            # Limpeza após cada página
+            del image
+            gc.collect()
+        
+        return chunk_results
+        
+    except Exception as e:
+        print(f"❌ Erro no chunk {chunk_number}: {str(e)}")
+        raise e
+
 def extract_text_with_ai_engines(image):
     """
     Extrai texto usando múltiplos engines de IA com análise de consenso.
